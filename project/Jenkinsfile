@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+
+    environment {
+        // Add any environment variables here
+        DEPLOY_SERVER = 'user@your-server-ip'
+        DEPLOY_PATH = '/var/www/html'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout the code from the repository
+                git branch: 'main', url: 'https://github.com/your-username/your-repo.git'
+            }
+        }
+
+        stage('Validate HTML') {
+            steps {
+                script {
+                    // Install tidy (HTML validator)
+                    sh 'sudo apt-get update && sudo apt-get install -y tidy'
+                    // Validate the HTML file
+                    sh 'tidy -q -e index.html'
+                }
+            }
+        }
+
+        stage('Validate CSS') {
+            steps {
+                script {
+                    // Install csslint (CSS validator)
+                    sh 'sudo npm install -g csslint'
+                    // Validate the CSS file
+                    sh 'csslint styles.css'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    // Deploy the website to the server using rsync over SSH
+                    sshagent(['your-ssh-credential-id']) {
+                        sh """
+                            rsync -avz --delete \
+                            -e "ssh -o StrictHostKeyChecking=no" \
+                            ./ ${DEPLOY_SERVER}:${DEPLOY_PATH}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            // Notify on success
+            echo 'Pipeline succeeded! Website deployed successfully.'
+        }
+        failure {
+            // Notify on failure
+            echo 'Pipeline failed. Check the logs for details.'
+        }
+    }
+}
